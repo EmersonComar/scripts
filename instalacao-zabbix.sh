@@ -1,5 +1,8 @@
 #!/bin/bash
 
+## Script criado para realizar a instalação básica
+## do zabbix em um Debian 11
+
 ##### ideia para o futuro
 show_spinner() {
   local pid=$1
