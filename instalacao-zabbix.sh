@@ -126,6 +126,7 @@ step_5() {
     execute_step "zabbix-agent (3/5)" "systemctl restart zabbix-agent"
     execute_step "nginx (4/5)" "systemctl restart nginx"
     execute_step "php7.4-fpm (5/5)" "systemctl restart php7.4-fpm"
+    execute_step "Ajustando inicialização dos serviços no boot" "systemctl enable zabbix-server zabbix-agent nginx php7.4-fpm mysql > /dev/null 2>&1"
 
 }
 
