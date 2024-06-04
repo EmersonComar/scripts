@@ -71,19 +71,19 @@ validar_usuario() {
 
 step_1(){
     echo -e "\nPreparando preparando sistema (1/5)"
-    execute_step "Atualizando repositórios (1/3)" "apt-get update"
-    execute_step "Atualizando sistema (2/3)" "apt-get upgrade -y > /dev/null 2>&1"
-    execute_step "Instalando dependências (3/3)" "apt-get install curl wget gzip gnupg2 net-tools locales-all -y"
+    execute_step "Atualizando repositórios (1/3)" "apt-get update -q"
+    execute_step "Atualizando sistema (2/3)" "apt-get upgrade -yq"
+    execute_step "Instalando dependências (3/3)" "apt-get install curl wget gzip gnupg2 net-tools locales-all -yq"
 }
 
 step_2() {
     echo -e "\nInstalando serviços (2/5)"
     execute_step "Baixando repositórios (1/6)" "wget -P /tmp https://repo.zabbix.com/zabbix/6.4/debian/pool/main/z/zabbix-release/zabbix-release_6.4-1+debian11_all.deb > /dev/null 2>&1"
     execute_step "Instalando repositório Zabbix (2/6)" "dpkg -i /tmp/zabbix-release_6.4-1+debian11_all.deb"
-    execute_step "Atualizando repositórios do sistema (3/6)" "apt-get update > /dev/null 2>&1"
+    execute_step "Atualizando repositórios do sistema (3/6)" "apt-get update -q"
     execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -y"
-    execute_step "Instalando NGINX (5/6)" "apt-get install nginx-full -y"
-    execute_step "Instalando MariaDB (6/6)" "apt-get install mariadb-server -y"
+    execute_step "Instalando NGINX (5/6)" "apt-get install nginx-full -yq"
+    execute_step "Instalando MariaDB (6/6)" "apt-get install mariadb-server -yq"
 }
 
 step_3() {
