@@ -81,7 +81,7 @@ step_2() {
     execute_step "Baixando repositórios (1/6)" "wget -P /tmp https://repo.zabbix.com/zabbix/6.4/debian/pool/main/z/zabbix-release/zabbix-release_6.4-1+debian11_all.deb > /dev/null 2>&1"
     execute_step "Instalando repositório Zabbix (2/6)" "dpkg -i /tmp/zabbix-release_6.4-1+debian11_all.deb"
     execute_step "Atualizando repositórios do sistema (3/6)" "apt-get update -q"
-    execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -y"
+    execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -yq"
     execute_step "Instalando NGINX (5/6)" "apt-get install nginx-full -yq"
     execute_step "Instalando MariaDB (6/6)" "apt-get install mariadb-server -yq"
 }
