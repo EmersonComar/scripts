@@ -69,24 +69,24 @@ validar_usuario() {
     echo "  [ok] Permissões de root utilizadas"
 }
 
-step_1(){
+atualizando_sistema(){
     echo -e "\nPreparando preparando sistema (1/5)"
     execute_step "Atualizando repositórios (1/3)" "apt-get update -q"
     execute_step "Atualizando sistema (2/3)" "apt-get upgrade -yq"
     execute_step "Instalando dependências (3/3)" "apt-get install curl wget gzip gnupg2 net-tools locales-all -yq"
 }
 
-step_2() {
+instalando_servicos() {
     echo -e "\nInstalando serviços (2/5)"
     execute_step "Baixando repositórios (1/6)" "wget -P /tmp https://repo.zabbix.com/zabbix/6.4/debian/pool/main/z/zabbix-release/zabbix-release_6.4-1+debian11_all.deb > /dev/null 2>&1"
     execute_step "Instalando repositório Zabbix (2/6)" "dpkg -i /tmp/zabbix-release_6.4-1+debian11_all.deb"
     execute_step "Atualizando repositórios do sistema (3/6)" "apt-get update -q"
-    execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -yq"
+    execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -yqqq"
     execute_step "Instalando NGINX (5/6)" "apt-get install nginx-full -yq"
     execute_step "Instalando MariaDB (6/6)" "apt-get install mariadb-server -yq"
 }
 
-step_3() {
+configurando_banco() {
     local SENHA_BANCO_ROOT=$1
     local SENHA_BANCO_ZABBIX=$2
 
@@ -110,7 +110,7 @@ step_3() {
     execute_step "Ajustando acesso ao database (6/6)" "sed -i 's/# DBPassword=/DBPassword=$SENHA_BANCO_ZABBIX/' /etc/zabbix/zabbix_server.conf"
 }
 
-step_4() {
+configurando_acesso_web() {
     echo -e "\nConfigurações do acesso web (4/5)"
 
     execute_step "Removendo server block padrão do nginx (1/3)" "rm /etc/nginx/sites-enabled/default"
@@ -119,7 +119,7 @@ step_4() {
 
 }
 
-step_5() {
+restartando_servicos() {
     echo -e "\nRestartando serviços (5/5)"
     execute_step "MariaDB (1/5)" "systemctl restart mysql"
     execute_step "zabbix-server (2/5)" "systemctl restart zabbix-server"
@@ -130,7 +130,7 @@ step_5() {
 
 }
 
-step_6() {
+exibindo_acessos() {
     local SENHA_BANCO_ROOT=$1
     local SENHA_BANCO_ZABBIX=$2
     echo -e " _____ ___ _   _    _    _     ___ _____   _    _   _ ____   ___       
@@ -151,12 +151,12 @@ excutando() {
     local SENHA_BANCO_ZABBIX=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c 15)
     mensagem_boasvindas
     validar_usuario
-    step_1
-    step_2
-    step_3 $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX
-    step_4
-    step_5
-    step_6 $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX
+    atualizando_sistema
+    instalando_servicos
+    configurando_banco $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX
+    configurando_acesso_web
+    restartando_servicos
+    exibindo_acessos $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX
 }
 
 excutando
