@@ -61,7 +61,7 @@ echo -e "Instalação automatizada\n"
 }
 
 validar_usuario() {
-    echo -e "Validando usuário\n"
+    echo -e "Validando usuário"
     if [ "$UID" -ne 0 ]; then
         echo "  [erro] Execute com permissões root"
         exit 1
@@ -69,21 +69,31 @@ validar_usuario() {
     echo "  [ok] Permissões de root utilizadas"
 }
 
+validar_SO() {
+    echo -e "\nValidando sistema operacional"
+    if [ $(lsb_release -r | cut -d: -f2) -eq 12 ]; then
+        echo "  [ok] Debian 12"
+    else
+        echo "  [erro] execute em um Debian 12"
+        exit 1
+    fi
+}
+
 atualizando_sistema(){
     echo -e "\nPreparando preparando sistema (1/5)"
-    execute_step "Atualizando repositórios (1/3)" "apt-get update -q"
-    execute_step "Atualizando sistema (2/3)" "apt-get upgrade -yq"
-    execute_step "Instalando dependências (3/3)" "apt-get install curl wget gzip gnupg2 net-tools locales-all -yq"
+    execute_step "Atualizando repositórios (1/3)" "apt-get update"
+    execute_step "Atualizando sistema (2/3)" "apt-get upgrade -y > /dev/null 2>&1"
+    execute_step "Instalando dependências (3/3)" "apt-get install curl wget gzip gnupg2 net-tools locales-all -y"
 }
 
 instalando_servicos() {
     echo -e "\nInstalando serviços (2/5)"
-    execute_step "Baixando repositórios (1/6)" "wget -P /tmp https://repo.zabbix.com/zabbix/6.4/debian/pool/main/z/zabbix-release/zabbix-release_6.4-1+debian11_all.deb > /dev/null 2>&1"
-    execute_step "Instalando repositório Zabbix (2/6)" "dpkg -i /tmp/zabbix-release_6.4-1+debian11_all.deb"
-    execute_step "Atualizando repositórios do sistema (3/6)" "apt-get update -q"
-    execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -yqqq"
-    execute_step "Instalando NGINX (5/6)" "apt-get install nginx-full -yq"
-    execute_step "Instalando MariaDB (6/6)" "apt-get install mariadb-server -yq"
+    execute_step "Baixando repositórios (1/6)" "wget https://repo.zabbix.com/zabbix/7.0/debian/pool/main/z/zabbix-release/zabbix-release_7.0-2+debian12_all.deb -O /tmp/zabbix7.deb> /dev/null 2>&1"
+    execute_step "Instalando repositório Zabbix (2/6)" "dpkg -i /tmp/zabbix7.deb"
+    execute_step "Atualizando repositórios do sistema (3/6)" "apt-get update"
+    execute_step "Instalando serviços básicos (4/6)" "apt-get install zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent -y > /dev/null 2>&1"
+    execute_step "Instalando NGINX (5/6)" "apt-get install nginx-full -y"
+    execute_step "Instalando MariaDB (6/6)" "apt-get install mariadb-server -y > /dev/null 2>&1"
 }
 
 configurando_banco() {
@@ -125,14 +135,50 @@ restartando_servicos() {
     execute_step "zabbix-server (2/5)" "systemctl restart zabbix-server"
     execute_step "zabbix-agent (3/5)" "systemctl restart zabbix-agent"
     execute_step "nginx (4/5)" "systemctl restart nginx"
-    execute_step "php7.4-fpm (5/5)" "systemctl restart php7.4-fpm"
-    execute_step "Ajustando inicialização dos serviços no boot" "systemctl enable zabbix-server zabbix-agent nginx php7.4-fpm mysql > /dev/null 2>&1"
+    execute_step "php7.4-fpm (5/5)" "systemctl restart php*"
+    execute_step "grafana (5/5)" "systemctl restart grafana-server"
+    execute_step "Ajustando inicialização dos serviços no boot" "systemctl enable zabbix-server zabbix-agent nginx grafana-server php8.2-fpm mysql > /dev/null 2>&1"
+
+}
+
+instalando_grafana() {
+    echo -e "\nInstalando Grafana (1/)"
+    execute_step "Criando usuários" "apt-get install -y adduser libfontconfig1 musl"
+    execute_step "baixando Grafana" "wget https://dl.grafana.com/enterprise/release/grafana-enterprise_11.1.0_amd64.deb > /dev/null 2>&1"
+    execute_step "instalando Grafana" "dpkg -i grafana-enterprise_11.1.0_amd64.deb > /dev/null 2>&1"
+}
+
+configurando_grafana() {
+    local SENHA_BANCO_ROOT=$1
+    local SENHA_BANCO_GRAFANA=$2
+    echo -e "\nConfigurando Grafana (1/)"
+
+    #execute_step "instalando plugin" "grafana-cli plugins install alexanderzobnin-zabbix-app > /dev/null 2>&1"
+
+    local COMMAND="CREATE DATABASE grafana CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    execute_step "Criando database ()" "mysql -u root --password=$SENHA_BANCO_ROOT -e \"$COMMAND\""
+
+    local COMMAND="CREATE USER 'grafana_user'@'localhost' IDENTIFIED BY '$SENHA_BANCO_GRAFANA';"
+    execute_step "Criando usuário grafana_user ()" "mysql -u root --password=$SENHA_BANCO_ROOT -e \"$COMMAND\""
+
+    local COMMAND="GRANT ALL PRIVILEGES ON grafana.* TO 'grafana_user'@'localhost';"
+    execute_step "Ajustando permissão usuário grafana_user ()" "mysql -u root --password=$SENHA_BANCO_ROOT -e \"$COMMAND\""
+
+    local COMMAND="FLUSH PRIVILEGES;"
+    execute_step "Atualizando permissões gerais ()" "mysql -u root --password=$SENHA_BANCO_ROOT -e \"$COMMAND\""
+
+    execute_step "Alterando banco" "sed -i 's/^;type = sqlite3/type = mysql/' /etc/grafana/grafana.ini"
+    execute_step "Alterando host" "sed -i 's/^;host = 127\.0\.0\.1:3306/host = localhost:3306/' /etc/grafana/grafana.ini"
+    execute_step "Alterando name" "sed -i 's/;name/name/' /etc/grafana/grafana.ini"
+    execute_step "Alterando user" "sed -i 's/;user = root/user = grafana_user/' /etc/grafana/grafana.ini"
+    execute_step "Alterando password" "sed -i 's/;password =/password = $SENHA_BANCO_GRAFANA/' /etc/grafana/grafana.ini"
 
 }
 
 exibindo_acessos() {
     local SENHA_BANCO_ROOT=$1
     local SENHA_BANCO_ZABBIX=$2
+    local SENHA_BANCO_GRAFANA=$3
     echo -e " _____ ___ _   _    _    _     ___ _____   _    _   _ ____   ___       
 |  ___|_ _| \ | |  / \  | |   |_ _|__  /  / \  | \ | |  _ \ / _ \      
 | |_   | ||  \| | / _ \ | |    | |  / /  / _ \ |  \| | | | | | | |     
@@ -143,20 +189,28 @@ exibindo_acessos() {
     echo -e "Guarde com cuidado as seguintes credencias:"
     echo -e "Senha banco root: $SENHA_BANCO_ROOT"
     echo -e "Senha banco zabbix: $SENHA_BANCO_ZABBIX"
+    echo -e "\n---"
+    echo -e "Acesse: http://$(hostname -I | cut -d " " -f1):3000/ para acessar o grafana"
+    echo -e "Usuário banco grafana: grafana_user"
+    echo -e "Senha banco grafana: $SENHA_BANCO_GRAFANA"
     echo -e "Não ficarão armazenadas em nenhum local\n"
 }
 
 excutando() {
     local SENHA_BANCO_ROOT=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c 15)
     local SENHA_BANCO_ZABBIX=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c 15)
+    local SENHA_BANCO_GRAFANA=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c 15)
     mensagem_boasvindas
     validar_usuario
+    validar_SO
     atualizando_sistema
     instalando_servicos
     configurando_banco $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX
     configurando_acesso_web
+    instalando_grafana
+    configurando_grafana $SENHA_BANCO_ROOT $SENHA_BANCO_GRAFANA
     restartando_servicos
-    exibindo_acessos $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX
+    exibindo_acessos $SENHA_BANCO_ROOT $SENHA_BANCO_ZABBIX $SENHA_BANCO_GRAFANA
 }
 
 excutando
